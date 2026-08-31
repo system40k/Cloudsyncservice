@@ -1,18 +1,23 @@
 <!-- /var/www/c2/public/index.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <!-- ⚡ Bolt Optimization: Early charset definition prevents HTML parser buffer re-encoding delays -->
+    <meta charset="UTF-8">
+    <!-- ⚡ Bolt Optimization: Viewport meta avoids rendering scale recalculations on mobile devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CloudSync Service - Cloud Synchronization Platform</title>
     <meta name="description" content="CloudSync Service provides enterprise-grade file synchronization and CDN delivery for modern web applications.">
     <style>
         /* Clean, modern SaaS styling */
-        body { font-family: -apple-system, sans-serif; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
         .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                 color: white; padding: 80px 20px; text-align: center; }
+        /* ⚡ Bolt Optimization: content-visibility: auto skips layout and rendering for offscreen sections, improving First Contentful Paint (FCP) and reducing main thread work */
         .features { display: grid; grid-template-columns: repeat(3, 1fr); 
-                    gap: 30px; padding: 60px 40px; }
+                    gap: 30px; padding: 60px 40px; content-visibility: auto; contain-intrinsic-size: 1px 300px; }
         .footer { background: #2d3748; color: white; padding: 40px; 
-                  text-align: center; font-size: 14px; }
+                  text-align: center; font-size: 14px; content-visibility: auto; contain-intrinsic-size: 1px 120px; }
     </style>
 </head>
 <body>
