@@ -1,0 +1,13 @@
+aws_region              = "us-east-1"
+environment              = "production"
+name_prefix              = "cloudsync-prod"
+web_origins              = ["https://app.example.com"]
+callback_urls            = ["https://app.example.com/auth/callback"]
+logout_urls              = ["https://app.example.com/"]
+cognito_domain_prefix    = "replace-with-globally-unique-prefix"
+cloudfront_public_key_pem = "REPLACE_WITH_A_REAL_PEM_PUBLIC_KEY"
+cloudfront_price_class   = "PriceClass_100"
+waf_rate_limit           = 2000
+aliases                  = []
+# For a custom CDN hostname, set aliases and an ACM certificate ARN from us-east-1.
+# acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/replace-me"

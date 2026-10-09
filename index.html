@@ -1,49 +1,233 @@
-<!-- /var/www/c2/public/index.html -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <!-- ⚡ Bolt Optimization: Early charset definition prevents HTML parser buffer re-encoding delays -->
-    <meta charset="UTF-8">
-    <!-- ⚡ Bolt Optimization: Viewport meta avoids rendering scale recalculations on mobile devices -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudSync Service - Cloud Synchronization Platform</title>
-    <meta name="description" content="CloudSync Service provides enterprise-grade file synchronization and CDN delivery for modern web applications.">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A localhost-only file storage prototype with authenticated upload, listing, and download endpoints.">
+    <title>CloudSync — Local file workspace</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
-        /* Clean, modern SaaS styling */
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-        .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                color: white; padding: 80px 20px; text-align: center; }
-        /* ⚡ Bolt Optimization: content-visibility: auto skips layout and rendering for offscreen sections, improving First Contentful Paint (FCP) and reducing main thread work */
-        .features { display: grid; grid-template-columns: repeat(3, 1fr); 
-                    gap: 30px; padding: 60px 40px; content-visibility: auto; contain-intrinsic-size: 1px 300px; }
-        .footer { background: #2d3748; color: white; padding: 40px; 
-                  text-align: center; font-size: 14px; content-visibility: auto; contain-intrinsic-size: 1px 120px; }
+        :root { color-scheme: light; --ink: #152238; --muted: #5d6b80; --blue: #315ee8; --line: #e4eaf2; --surface: #f5f8fc; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: var(--ink); background: #fff; font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+        a { color: inherit; }
+        .wrap { width: min(1080px, calc(100% - 40px)); margin-inline: auto; }
+        .notice { padding: 10px 20px; text-align: center; color: #543b00; background: #fff4d6; font-size: .9rem; }
+        header { border-bottom: 1px solid var(--line); }
+        nav { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .brand { font-weight: 750; font-size: 1.15rem; text-decoration: none; }
+        .navlinks { display: flex; flex-wrap: wrap; gap: 20px; color: var(--muted); font-size: .94rem; }
+        .navlinks a, footer a { text-decoration: none; }
+        .hero { padding: 88px 0 76px; background: radial-gradient(ellipse at 80% 10%, #e8edff 0, transparent 42%), linear-gradient(180deg, #f8faff, #fff); }
+        .eyebrow { color: var(--blue); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .78rem; }
+        h1 { max-width: 760px; margin: 12px 0 18px; font-size: clamp(2.5rem, 6vw, 4.6rem); line-height: 1.05; letter-spacing: -.045em; }
+        .lead { max-width: 680px; color: var(--muted); font-size: 1.2rem; }
+        .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+        .button { display: inline-block; padding: 11px 18px; border: 1px solid var(--blue); border-radius: 9px; background: var(--blue); color: white; font-weight: 650; text-decoration: none; }
+        .button.secondary { color: var(--blue); background: transparent; }
+        section { padding: 64px 0; }
+        h2 { margin: 0 0 12px; font-size: clamp(1.7rem, 3vw, 2.3rem); letter-spacing: -.025em; }
+        .section-intro { max-width: 650px; margin: 0 0 28px; color: var(--muted); }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+        .card { padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+        .card h3 { margin: 0 0 8px; }
+        .card p { margin: 0; color: var(--muted); }
+        .steps { background: var(--surface); }
+        .step-number { color: var(--blue); font-weight: 750; font-size: .85rem; }
+        .demo-band { padding: 32px; border-radius: 16px; background: #17243b; color: white; }
+        .demo-band p { color: #d1daea; }
+        .workspace { background: var(--surface); }
+        .workspace-panel { max-width: 760px; padding: 28px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+        .form-row { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 18px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: 650; }
+        input[type="password"], input[type="file"] { display: block; width: 100%; max-width: 480px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }
+        button { font: inherit; cursor: pointer; }
+        button:disabled { cursor: wait; opacity: .6; }
+        #connection-status, #upload-status { min-height: 1.5em; color: var(--muted); }
+        #file-list { padding: 0; list-style: none; }
+        .file-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+        .file-meta { overflow-wrap: anywhere; }
+        .file-meta small { display: block; color: var(--muted); }
+        footer { padding: 30px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+        .footlinks { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 12px; }
+        @media (max-width: 700px) { nav { align-items: flex-start; flex-direction: column; padding: 16px 0; gap: 8px; } .grid { grid-template-columns: 1fr; } .hero { padding: 60px 0; } }
     </style>
 </head>
 <body>
-    <div class="hero">
-        <h1>CloudSync Service</h1>
-        <p>Enterprise Cloud Synchronization &amp; CDN Delivery</p>
-    </div>
-    
-    <div class="features">
-        <div>
-            <h3>Real-time Sync</h3>
-            <p>Synchronize data across distributed systems with millisecond latency.</p>
-        </div>
-        <div>
-            <h3>Global CDN</h3>
-            <p>Serve static assets from edge nodes worldwide for maximum performance.</p>
-        </div>
-        <div>
-            <h3>Analytics Engine</h3>
-            <p>Track usage patterns and optimize delivery with our analytics platform.</p>
-        </div>
-    </div>
-    
-    <div class="footer">
-        <p>&copy; 2024 CloudSync Service. All rights reserved.</p>
-        <p>Privacy Policy | Terms of Service | Contact</p>
-    </div>
+    <div class="notice"><strong>Local prototype:</strong> runs on this computer only; uploads are limited to 5 MiB. Do not expose it to a network or store sensitive files.</div>
+    <header><nav class="wrap" aria-label="Main navigation">
+        <a class="brand" href="/">☁ CloudSync local</a>
+        <div class="navlinks"><a href="/about.html">About</a><a href="/docs.html">Docs</a><a href="/status.html">Status</a></div>
+    </nav></header>
+    <main>
+        <section class="hero"><div class="wrap">
+            <div class="eyebrow">Working local prototype</div>
+            <h1>A simple workspace for your files.</h1>
+            <p class="lead">Upload files to this machine, review what is stored, and download them again through a small authenticated API. This is a single-host prototype—not multi-device synchronization or a production cloud service.</p>
+            <div class="actions"><a class="button" href="#workspace">Open local workspace</a><a class="button secondary" href="/docs.html">API documentation</a></div>
+        </div></section>
+        <section><div class="wrap">
+            <h2>What works in this prototype</h2>
+            <p class="section-intro">The local API persists uploaded files and metadata on disk. It is intentionally small and does not claim to be a production sync platform.</p>
+            <div class="grid">
+                <article class="card"><h3>Upload</h3><p>Send a file of up to 5 MiB using the browser interface and a per-run bearer token.</p></article>
+                <article class="card"><h3>Review</h3><p>List stored files with their names, sizes, and upload timestamps.</p></article>
+                <article class="card"><h3>Download</h3><p>Retrieve a stored file through an authenticated endpoint. Data stays on this host.</p></article>
+            </div>
+        </div></section>
+        <section class="workspace" id="workspace"><div class="wrap">
+            <h2>Local file workspace</h2>
+            <p class="section-intro">Start the server as described in the docs, then paste its one-time API token below. Your token is kept in this browser tab only.</p>
+            <div class="workspace-panel">
+                <form id="connect-form">
+                    <label for="api-token">Local API token</label>
+                    <div class="form-row"><input id="api-token" type="password" autocomplete="current-password" required aria-describedby="connection-status"><button class="button" type="submit">Connect</button></div>
+                </form>
+                <p id="connection-status" role="status">Not connected.</p>
+                <div id="file-workspace" hidden>
+                    <form id="upload-form">
+                        <label for="file-input">Choose a file (5 MiB maximum)</label>
+                        <div class="form-row"><input id="file-input" type="file" required><button class="button" type="submit">Upload file</button></div>
+                    </form>
+                    <p id="upload-status" role="status"></p>
+                    <h3>Stored files</h3>
+                    <ul id="file-list"></ul>
+                </div>
+            </div>
+        </div></section>
+        <section><div class="wrap"><div class="demo-band"><h2>Prototype boundaries</h2><p>This implementation is for local development. It has no accounts, multi-device sync engine, encryption-at-rest configuration, backups, or production hardening. Keep it bound to localhost and use non-sensitive test files.</p><a class="button" href="/docs.html">Read setup and API documentation</a></div></div></section>
+    </main>
+    <footer><div class="wrap"><strong>CloudSync local prototype</strong><div>Single-host development service · Not for production</div><div class="footlinks"><a href="/about.html">About</a><a href="/docs.html">Docs</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/status.html">Status</a><a href="/contact.html">Contact</a></div></div></footer>
+    <script>
+        const tokenInput = document.querySelector("#api-token");
+        const connectForm = document.querySelector("#connect-form");
+        const workspace = document.querySelector("#file-workspace");
+        const connectionStatus = document.querySelector("#connection-status");
+        const uploadStatus = document.querySelector("#upload-status");
+        const fileList = document.querySelector("#file-list");
+        let apiToken = sessionStorage.getItem("cloudsync-api-token") || "";
+        tokenInput.value = apiToken;
+
+        async function api(path, options = {}) {
+            const response = await fetch(path, {
+                ...options,
+                headers: { ...options.headers, Authorization: `Bearer ${apiToken}` }
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
+            return payload;
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+        }
+
+        async function refreshFiles() {
+            const result = await api("/api/v1/files");
+            fileList.replaceChildren();
+            if (result.files.length === 0) {
+                const empty = document.createElement("li");
+                empty.textContent = "No files uploaded yet.";
+                fileList.append(empty);
+                return;
+            }
+            for (const file of result.files) {
+                const item = document.createElement("li");
+                item.className = "file-row";
+                const details = document.createElement("div");
+                details.className = "file-meta";
+                const name = document.createElement("strong");
+                name.textContent = file.name;
+                const metadata = document.createElement("small");
+                metadata.textContent = `${formatSize(file.size)} · ${new Date(file.created_at).toLocaleString()}`;
+                details.append(name, metadata);
+                const download = document.createElement("button");
+                download.className = "button secondary";
+                download.type = "button";
+                download.textContent = "Download";
+                download.addEventListener("click", () => downloadFile(file));
+                item.append(details, download);
+                fileList.append(item);
+            }
+        }
+
+        async function connect(value) {
+            apiToken = value;
+            await refreshFiles();
+            sessionStorage.setItem("cloudsync-api-token", apiToken);
+            workspace.hidden = false;
+            connectionStatus.textContent = "Connected to the local file service.";
+        }
+
+        connectForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            connectionStatus.textContent = "Connecting…";
+            try {
+                await connect(tokenInput.value.trim());
+            } catch (error) {
+                apiToken = "";
+                sessionStorage.removeItem("cloudsync-api-token");
+                workspace.hidden = true;
+                connectionStatus.textContent = error.message;
+            }
+        });
+
+        async function downloadFile(file) {
+            try {
+                const response = await fetch(`/api/v1/files/${encodeURIComponent(file.id)}/download`, {
+                    headers: { Authorization: `Bearer ${apiToken}` }
+                });
+                if (!response.ok) {
+                    const payload = await response.json();
+                    throw new Error(payload.error || "Download failed.");
+                }
+                const blobUrl = URL.createObjectURL(await response.blob());
+                const link = document.createElement("a");
+                link.href = blobUrl;
+                link.download = file.name;
+                link.click();
+                URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                connectionStatus.textContent = error.message;
+            }
+        }
+
+        document.querySelector("#upload-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const file = document.querySelector("#file-input").files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                uploadStatus.textContent = "That file exceeds the 5 MiB limit.";
+                return;
+            }
+            uploadStatus.textContent = "Uploading…";
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            let binary = "";
+            for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+                binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+            }
+            try {
+                await api("/api/v1/files", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: file.name, content_base64: btoa(binary) })
+                });
+                document.querySelector("#file-input").value = "";
+                await refreshFiles();
+                uploadStatus.textContent = "Upload complete.";
+            } catch (error) {
+                uploadStatus.textContent = error.message;
+            }
+        });
+
+        if (apiToken) {
+            connect(apiToken).catch((error) => {
+                workspace.hidden = true;
+                connectionStatus.textContent = error.message;
+            });
+        }
+    </script>
 </body>
 </html>

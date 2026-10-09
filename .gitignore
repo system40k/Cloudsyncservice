@@ -1,0 +1,15 @@
+# Terraform state, providers, and local configuration
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+backend.hcl
+crash.log
+
+# Local runtime data and generated signing keys
+data/
+__pycache__/
+*.py[cod]
+*.pem

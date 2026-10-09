@@ -1,0 +1,6 @@
+# Static concept preview. Replace the example.invalid sitemap URL only if
+# publishing a real site at a domain you control.
+User-agent: *
+Allow: /
+
+Sitemap: https://example.invalid/sitemap.xml

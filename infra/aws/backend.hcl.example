@@ -1,0 +1,7 @@
+# Copy to backend.hcl (gitignored), fill in an already-created state bucket,
+# and pass it to `terraform init -backend-config=backend.hcl`.
+bucket       = "REPLACE_WITH_TERRAFORM_STATE_BUCKET"
+key          = "cloudsync/production/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

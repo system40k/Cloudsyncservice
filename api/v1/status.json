@@ -1,0 +1,5 @@
+{
+  "status": "demo",
+  "service": "cloudsync-concept",
+  "message": "Static example only; no production API is running."
+}
