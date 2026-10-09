@@ -4,11 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="A localhost-only file storage prototype with authenticated upload, listing, and download endpoints.">
+    <meta name="theme-color" content="#315ee8">
     <title>CloudSync — Local file workspace</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/manifest.webmanifest">
     <style>
         :root { color-scheme: light; --ink: #152238; --muted: #5d6b80; --blue: #315ee8; --line: #e4eaf2; --surface: #f5f8fc; }
         * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
         body { margin: 0; color: var(--ink); background: #fff; font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
         a { color: inherit; }
         .wrap { width: min(1080px, calc(100% - 40px)); margin-inline: auto; }
@@ -64,7 +67,8 @@
             <div class="eyebrow">Working local prototype</div>
             <h1>A simple workspace for your files.</h1>
             <p class="lead">Upload files to this machine, review what is stored, and download them again through a small authenticated API. This is a single-host prototype—not multi-device synchronization or a production cloud service.</p>
-            <div class="actions"><a class="button" href="#workspace">Open local workspace</a><a class="button secondary" href="/docs.html">API documentation</a></div>
+            <div class="actions"><a class="button" href="#workspace">Open local workspace</a><a class="button secondary" href="/docs.html">API documentation</a><button class="button" id="install-app" type="button" hidden>Install app</button></div>
+            <p id="install-help" class="section-intro">Install this app from your browser's menu when available. Installation does not grant file or device permissions.</p>
         </div></section>
         <section><div class="wrap">
             <h2>What works in this prototype</h2>
@@ -226,6 +230,46 @@
             connect(apiToken).catch((error) => {
                 workspace.hidden = true;
                 connectionStatus.textContent = error.message;
+            });
+        }
+
+        const installButton = document.querySelector("#install-app");
+        const installHelp = document.querySelector("#install-help");
+        let installPrompt = null;
+        const isInstalled = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+        if (isInstalled) {
+            installHelp.textContent = "CloudSync is running as an installed app.";
+        }
+
+        window.addEventListener("beforeinstallprompt", (event) => {
+            event.preventDefault();
+            installPrompt = event;
+            if (!isInstalled) installButton.hidden = false;
+        });
+
+        installButton.addEventListener("click", async () => {
+            if (!installPrompt) {
+                installHelp.textContent = "Use your browser menu and choose Install app or Add to Home Screen.";
+                return;
+            }
+            installPrompt.prompt();
+            const choice = await installPrompt.userChoice;
+            installPrompt = null;
+            installButton.hidden = true;
+            installHelp.textContent = choice.outcome === "accepted"
+                ? "Installation accepted. Your browser will finish installing the app."
+                : "Installation dismissed. You can install later from your browser menu.";
+        });
+
+        window.addEventListener("appinstalled", () => {
+            installButton.hidden = true;
+            installHelp.textContent = "CloudSync was installed. No device permissions were granted automatically.";
+        });
+
+        if ("serviceWorker" in navigator && window.isSecureContext) {
+            navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
+                installHelp.textContent = "Offline app shell is unavailable; reconnect to the local server to use the app.";
             });
         }
     </script>

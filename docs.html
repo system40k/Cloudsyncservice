@@ -18,6 +18,10 @@
       <li>Upload, list, and download test files from the page. Press Ctrl+C in the terminal to stop the server.</li>
     </ol>
     <p>The server binds only to <code>127.0.0.1</code>. Uploaded file data and its SQLite index are stored outside the public site directory in <code>~/.local/share/cloudsync-local/</code>. Set <code>CLOUDSYNC_DATA_DIR</code> to choose another local directory outside this project. Set <code>PORT</code> to change the default port 8000.</p>
+    <h2>Install as a web app</h2>
+    <p>On supported browsers, use the <strong>Install app</strong> button or the browser menu's Install/Add to Home Screen action. The app shell and informational pages can be cached for offline viewing; file API requests and user file data are never cached. File operations still require the local server to be running.</p>
+    <p>Browsers do not allow an app to request every device permission automatically during installation. This prototype requests no notification, camera, microphone, location, or broad file-system permissions. The file picker grants access only to files you explicitly choose.</p>
+    <p>Installation requires a secure context: localhost is treated as secure for development; a deployed site must use HTTPS.</p>
     <h2>API</h2>
     <ul>
       <li><code>GET /api/v1/status</code> — public process status.</li>

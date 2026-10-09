@@ -19,6 +19,8 @@ python3 server.py
 
 The server listens only on `127.0.0.1:8000`. Keep the terminal open, then visit <http://127.0.0.1:8000/>. Paste the one-time bearer token printed in the terminal into the page. Stop the process with Ctrl+C. Set `PORT` to use another local port.
 
+The UI is an installable PWA on supported browsers (use its install button or the browser menu). Its service worker caches only public app-shell pages/icons; API responses and file contents are never cached. Installation does not request device permissions. The file picker accesses only files you explicitly select.
+
 Uploaded file data and SQLite metadata are stored in `~/.local/share/cloudsync-local/`, outside the public site directory. `CLOUDSYNC_DATA_DIR` can select another local data directory; it must remain outside this project.
 
 ## API

@@ -29,7 +29,9 @@ DB_LOCK = threading.Lock()
 PUBLIC_FILES = {
     "/", "/index.html", "/about.html", "/docs.html", "/status.html",
     "/privacy.html", "/terms.html", "/contact.html", "/favicon.svg",
-    "/robots.txt", "/sitemap.xml", "/api/v1/status.json", "/api/v1/files.json",
+    "/robots.txt", "/sitemap.xml", "/manifest.webmanifest", "/sw.js",
+    "/app-icon-192.svg", "/app-icon-512.svg",
+    "/api/v1/status.json", "/api/v1/files.json",
 }
 
 
@@ -79,7 +81,8 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
-        self.send_header("Cache-Control", "no-store")
+        cache_control = "no-store" if urlsplit(self.path).path.startswith("/api/") else "public, max-age=0, must-revalidate"
+        self.send_header("Cache-Control", cache_control)
         super().end_headers()
 
     def _json(self, status: int, payload: dict) -> None:
