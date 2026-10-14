@@ -47,7 +47,7 @@ The OAuth callback is `/auth/callback`. Configure this exact URI in Cognito. The
 - `GET /auth/login`: starts OAuth authorization-code + PKCE.
 - `GET /auth/callback`: validates signed OAuth state, exchanges the code, validates the Cognito ID token, and creates a server-side session.
 - `GET /auth/me`: current user summary.
-- `POST /auth/logout`: invalidates the server-side session.
+- `POST /auth/logout`: invalidates the server-side session and redirects through Cognito logout.
 
 Session cookies are HttpOnly and SameSite=Lax. Production must use HTTPS and Secure cookies. The raw session token is never stored in PostgreSQL; only its SHA-256 hash is stored. No access or ID token is returned to browser JavaScript.
 

@@ -100,19 +100,24 @@ async def callback(request: Request, code: str, state: str, db: Session = Depend
     if not secrets.compare_digest(str(payload.get("state", "")), state):
         raise HTTPException(status_code=400, detail="OAuth state mismatch")
 
+    token_data = {
+        "grant_type": "authorization_code",
+        "client_id": settings.cognito_client_id,
+        "code": code,
+        "redirect_uri": settings.app_base_url.rstrip("/") + "/auth/callback",
+        "code_verifier": payload["verifier"],
+    }
+    if settings.cognito_client_secret:
+        token_data["client_secret"] = settings.cognito_client_secret
     async with httpx.AsyncClient(timeout=10.0) as client:
-        token_response = await client.post(
-            settings.cognito_token_url,
-            data={
-                "grant_type": "authorization_code",
-                "client_id": settings.cognito_client_id,
-                "client_secret": settings.cognito_client_secret or "",
-                "code": code,
-                "redirect_uri": settings.app_base_url.rstrip("/") + "/auth/callback",
-                "code_verifier": payload["verifier"],
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+        try:
+            token_response = await client.post(
+                settings.cognito_token_url,
+                data=token_data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+        except httpx.HTTPError:
+            raise HTTPException(status_code=502, detail="Identity provider is unavailable") from None
     if token_response.status_code != 200:
         raise HTTPException(status_code=401, detail="Identity provider rejected the authorization code")
     tokens = token_response.json()
@@ -130,9 +135,9 @@ async def callback(request: Request, code: str, state: str, db: Session = Depend
             audience=settings.cognito_client_id, issuer=settings.cognito_issuer,
             options={"require": ["exp", "iat", "sub", "iss", "aud"]},
         )
-    except (jwt.PyJWTError, Exception) as error:
-        # Do not return token or claim details to the browser.
-        raise HTTPException(status_code=401, detail="Identity token validation failed") from error
+    except Exception:
+        # Fail closed without returning token, claim, key, or upstream details.
+        raise HTTPException(status_code=401, detail="Identity token validation failed") from None
     if not secrets.compare_digest(str(claims.get("nonce", "")), str(payload.get("nonce", ""))):
         raise HTTPException(status_code=401, detail="Identity token nonce mismatch")
 
@@ -165,8 +170,8 @@ def me(user: User = Depends(current_user)):
     return {"id": user.id, "email": user.email}
 
 
-@router.post("/logout", status_code=204)
-def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+@router.post("/logout", status_code=303)
+def logout(request: Request, db: Session = Depends(get_db)):
     origin = request.headers.get("origin")
     if origin and origin.rstrip("/") not in {item.rstrip("/") for item in settings.allowed_web_origins}:
         raise HTTPException(status_code=403, detail="Origin not allowed")
@@ -176,6 +181,14 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
         if session:
             db.delete(session)
             db.commit()
+    logout_params = {
+        "client_id": settings.cognito_client_id,
+        "logout_uri": settings.app_base_url.rstrip("/") + "/",
+    }
+    response = RedirectResponse(
+        settings.cognito_logout_url + "?" + urlencode(logout_params),
+        status_code=303,
+    )
     response.delete_cookie(settings.session_cookie_name, path="/")
     response.headers["Cache-Control"] = "no-store"
     return response
