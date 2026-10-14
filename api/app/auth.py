@@ -173,7 +173,7 @@ def me(user: User = Depends(current_user)):
 @router.post("/logout", status_code=303)
 def logout(request: Request, db: Session = Depends(get_db)):
     origin = request.headers.get("origin")
-    if origin and origin.rstrip("/") not in {item.rstrip("/") for item in settings.allowed_web_origins}:
+    if not origin or origin.rstrip("/") not in {item.rstrip("/") for item in settings.allowed_web_origins}:
         raise HTTPException(status_code=403, detail="Origin not allowed")
     token = request.cookies.get(settings.session_cookie_name)
     if token:
