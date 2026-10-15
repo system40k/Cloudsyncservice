@@ -24,7 +24,7 @@ export const pool = new Pool({
   port: Number(process.env.PGPORT || 5432),
   user,
   password: signer ? () => signer.getAuthToken() : process.env.DATABASE_PASSWORD,
-  ssl: hasAuroraConfig ? { rejectUnauthorized: false } : undefined,
+  ssl: hasAuroraConfig ? { rejectUnauthorized: true } : undefined,
   max: 20,
 })
 
