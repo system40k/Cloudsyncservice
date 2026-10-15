@@ -25,7 +25,9 @@
   },
   "homepage": "https://github.com/system40k/Cloudsyncservice#readme",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1152.0",
     "@aws-sdk/rds-signer": "^3.1152.0",
+    "@aws-sdk/s3-request-presigner": "^3.1152.0",
     "@vercel/functions": "^3.10.1",
     "better-auth": "^1.7.8",
     "lucide-react": "^1.57.0",
