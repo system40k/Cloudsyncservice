@@ -56,6 +56,28 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "files" {
   }
 }
 
+resource "aws_s3_bucket_lifecycle_configuration" "files" {
+  bucket = aws_s3_bucket.files.id
+
+  rule {
+    id     = "abort-incomplete-multipart-uploads"
+    status = "Enabled"
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 2
+    }
+  }
+
+  rule {
+    id     = "expire-noncurrent-object-versions"
+    status = "Enabled"
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
+}
+
 resource "aws_s3_bucket_cors_configuration" "files" {
   bucket = aws_s3_bucket.files.id
 
