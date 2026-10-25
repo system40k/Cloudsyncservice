@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import os
 import time
@@ -195,9 +196,15 @@ def create_upload_intent(
                 "INSERT INTO audit_events (owner_subject, action, resource_id, request_id) VALUES (%s, %s, %s, %s)",
                 (subject, "upload_intent.created", file_id, request.headers.get("x-request-id", str(uuid.uuid4()))),
             )
+    checksum_b64 = base64.b64encode(bytes.fromhex(payload.sha256_hex.lower())).decode("ascii")
     upload_url = _s3().generate_presigned_url(
         "put_object",
-        Params={"Bucket": settings.s3_bucket, "Key": object_key, "ContentLength": payload.size_bytes},
+        Params={
+            "Bucket": settings.s3_bucket,
+            "Key": object_key,
+            "ContentLength": payload.size_bytes,
+            "ChecksumSHA256": checksum_b64,
+        },
         ExpiresIn=900,
     )
     return {"file": dict(row), "object_key": object_key, "upload": {"method": "PUT", "url": upload_url, "expires_in": 900}}
@@ -228,6 +235,9 @@ def complete_upload(
             raise
         if metadata.get("ContentLength") != row["size_bytes"]:
             raise HTTPException(status_code=409, detail="Uploaded object size does not match the upload intent")
+        expected_checksum = base64.b64encode(bytes.fromhex(row["sha256_hex"])).decode("ascii")
+        if metadata.get("ChecksumSHA256") != expected_checksum:
+            raise HTTPException(status_code=409, detail="Uploaded object checksum does not match the upload intent")
         updated = connection.execute(
             "UPDATE file_objects SET completed_at = now(), updated_at = now() WHERE id = %s RETURNING id, name, size_bytes, sha256_hex, revision, completed_at",
             (payload.file_id,),
