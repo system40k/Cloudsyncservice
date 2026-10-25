@@ -163,18 +163,38 @@ def create_upload_intent(
         raise HTTPException(status_code=400, detail="A valid Idempotency-Key is required")
     if payload.size_bytes > settings.max_file_bytes:
         raise HTTPException(status_code=413, detail="File exceeds the configured size limit")
+    request_hash = hashlib.sha256(
+        f"{payload.name}\n{payload.size_bytes}\n{payload.sha256_hex.lower()}".encode()
+    ).hexdigest()
     file_id = uuid.uuid4()
     object_key = f"objects/{subject}/{file_id}/1"
     with _pool().connection() as connection:
-        row = connection.execute(
-            """INSERT INTO file_objects (id, owner_subject, name, size_bytes, sha256_hex, object_key)
-               VALUES (%s, %s, %s, %s, %s, %s) RETURNING id, name, size_bytes, sha256_hex, revision""",
-            (file_id, subject, payload.name, payload.size_bytes, payload.sha256_hex.lower(), object_key),
+        existing = connection.execute(
+            """SELECT i.request_hash, f.id, f.name, f.size_bytes, f.sha256_hex, f.revision, f.object_key
+               FROM upload_idempotency_keys i
+               JOIN file_objects f ON f.id = i.file_id
+               WHERE i.owner_subject = %s AND i.idempotency_key = %s""",
+            (subject, idempotency_key),
         ).fetchone()
-        connection.execute(
-            "INSERT INTO audit_events (owner_subject, action, resource_id, request_id) VALUES (%s, %s, %s, %s)",
-            (subject, "upload_intent.created", file_id, request.headers.get("x-request-id", str(uuid.uuid4()))),
-        )
+        if existing:
+            if existing["request_hash"] != request_hash:
+                raise HTTPException(status_code=409, detail="Idempotency-Key was already used for a different upload")
+            row = existing
+            object_key = row["object_key"]
+        else:
+            row = connection.execute(
+                """INSERT INTO file_objects (id, owner_subject, name, size_bytes, sha256_hex, object_key)
+                   VALUES (%s, %s, %s, %s, %s, %s) RETURNING id, name, size_bytes, sha256_hex, revision, object_key""",
+                (file_id, subject, payload.name, payload.size_bytes, payload.sha256_hex.lower(), object_key),
+            ).fetchone()
+            connection.execute(
+                "INSERT INTO upload_idempotency_keys (owner_subject, idempotency_key, request_hash, file_id) VALUES (%s, %s, %s, %s)",
+                (subject, idempotency_key, request_hash, file_id),
+            )
+            connection.execute(
+                "INSERT INTO audit_events (owner_subject, action, resource_id, request_id) VALUES (%s, %s, %s, %s)",
+                (subject, "upload_intent.created", file_id, request.headers.get("x-request-id", str(uuid.uuid4()))),
+            )
     upload_url = _s3().generate_presigned_url(
         "put_object",
         Params={"Bucket": settings.s3_bucket, "Key": object_key, "ContentLength": payload.size_bytes},

@@ -16,6 +16,15 @@ CREATE INDEX IF NOT EXISTS file_objects_owner_updated_idx
     ON file_objects (owner_subject, updated_at DESC)
     WHERE deleted_at IS NULL;
 
+CREATE TABLE IF NOT EXISTS upload_idempotency_keys (
+    owner_subject text NOT NULL,
+    idempotency_key text NOT NULL,
+    request_hash char(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+    file_id uuid NOT NULL REFERENCES file_objects(id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (owner_subject, idempotency_key)
+);
+
 CREATE TABLE IF NOT EXISTS audit_events (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     owner_subject text NOT NULL,
