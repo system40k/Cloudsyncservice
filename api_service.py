@@ -8,6 +8,7 @@ from typing import Any
 
 import boto3
 import jwt
+from botocore.exceptions import ClientError
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from jwt import PyJWKClient
 from pydantic import BaseModel, Field
@@ -44,6 +45,32 @@ def _pool() -> ConnectionPool:
         )
         app.state.db_pool = pool
     return pool
+
+
+def _s3():
+    client = getattr(app.state, "s3", None)
+    if client is None:
+        if not settings.s3_bucket:
+            raise HTTPException(status_code=503, detail="Object storage is not configured")
+        role_arn = os.getenv("AMAZON_S3___OBJECT_STORAGE_AWS_ROLE_ARN", os.getenv("AWS_ROLE_ARN", ""))
+        region = os.getenv("AMAZON_S3___OBJECT_STORAGE_AWS_REGION", settings.aws_region)
+        if role_arn and os.getenv("VERCEL_OIDC_TOKEN"):
+            sts = boto3.client("sts", region_name=region)
+            credentials = sts.assume_role_with_web_identity(
+                RoleArn=role_arn,
+                RoleSessionName="cloudsync-api",
+                WebIdentityToken=os.environ["VERCEL_OIDC_TOKEN"],
+            )["Credentials"]
+            client = boto3.client(
+                "s3", region_name=region,
+                aws_access_key_id=credentials["AccessKeyId"],
+                aws_secret_access_key=credentials["SecretAccessKey"],
+                aws_session_token=credentials["SessionToken"],
+            )
+        else:
+            client = boto3.client("s3", region_name=region)
+        app.state.s3 = client
+    return client
 
 
 def _jwks() -> PyJWKClient:
@@ -118,7 +145,7 @@ def list_files(subject: str = Depends(current_subject)) -> dict[str, list[dict[s
     with _pool().connection() as connection:
         rows = connection.execute(
             """SELECT id, name, size_bytes, sha256_hex, revision, created_at, updated_at
-               FROM file_objects WHERE owner_subject = %s AND deleted_at IS NULL
+               FROM file_objects WHERE owner_subject = %s AND deleted_at IS NULL AND completed_at IS NOT NULL
                ORDER BY updated_at DESC""",
             (subject,),
         ).fetchall()
@@ -148,4 +175,45 @@ def create_upload_intent(
             "INSERT INTO audit_events (owner_subject, action, resource_id, request_id) VALUES (%s, %s, %s, %s)",
             (subject, "upload_intent.created", file_id, request.headers.get("x-request-id", str(uuid.uuid4()))),
         )
-    return {"file": dict(row), "object_key": object_key, "upload": {"method": "PUT", "bucket": settings.s3_bucket}}
+    upload_url = _s3().generate_presigned_url(
+        "put_object",
+        Params={"Bucket": settings.s3_bucket, "Key": object_key, "ContentLength": payload.size_bytes},
+        ExpiresIn=900,
+    )
+    return {"file": dict(row), "object_key": object_key, "upload": {"method": "PUT", "url": upload_url, "expires_in": 900}}
+
+
+class UploadCompletion(BaseModel):
+    file_id: uuid.UUID
+
+
+@app.post("/api/v1/files/complete")
+def complete_upload(
+    payload: UploadCompletion,
+    request: Request,
+    subject: str = Depends(current_subject),
+) -> dict[str, Any]:
+    with _pool().connection() as connection:
+        row = connection.execute(
+            "SELECT id, object_key, size_bytes FROM file_objects WHERE id = %s AND owner_subject = %s AND deleted_at IS NULL",
+            (payload.file_id, subject),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="File not found")
+        try:
+            metadata = _s3().head_object(Bucket=settings.s3_bucket, Key=row["object_key"])
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") in {"404", "NoSuchKey"}:
+                raise HTTPException(status_code=409, detail="Upload has not reached object storage") from error
+            raise
+        if metadata.get("ContentLength") != row["size_bytes"]:
+            raise HTTPException(status_code=409, detail="Uploaded object size does not match the upload intent")
+        updated = connection.execute(
+            "UPDATE file_objects SET completed_at = now(), updated_at = now() WHERE id = %s RETURNING id, name, size_bytes, sha256_hex, revision, completed_at",
+            (payload.file_id,),
+        ).fetchone()
+        connection.execute(
+            "INSERT INTO audit_events (owner_subject, action, resource_id, request_id) VALUES (%s, %s, %s, %s)",
+            (subject, "upload.completed", payload.file_id, request.headers.get("x-request-id", str(uuid.uuid4()))),
+        )
+    return {"file": dict(updated)}

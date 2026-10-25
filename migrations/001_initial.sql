@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS file_objects (
     revision bigint NOT NULL DEFAULT 1 CHECK (revision > 0),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
+    completed_at timestamptz,
     deleted_at timestamptz
 );
 
